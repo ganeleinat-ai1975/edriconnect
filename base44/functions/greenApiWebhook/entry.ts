@@ -284,12 +284,26 @@ Deno.serve(async (req) => {
       message_count_at_send: expectedIndex,
     });
 
-    // ===== POLL FOR BOT REPLY (max 15 seconds) =====
+    // ===== POLL FOR BOT REPLY (max 25 seconds) =====
     let botReply = '';
     const pollStart = Date.now();
+    let refreshedTyping = false;
 
-    while (Date.now() - pollStart < 15000) {
-      await new Promise(r => setTimeout(r, 800)); // wait 800ms between checks
+    while (Date.now() - pollStart < 25000) {
+      await new Promise(r => setTimeout(r, 500)); // wait 500ms between checks
+
+      // Refresh typing indicator after 7s so the user doesn't see silence
+      if (!refreshedTyping && Date.now() - pollStart > 7000) {
+        refreshedTyping = true;
+        try {
+          const typingUrl = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
+          fetch(typingUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId, typingTime: 15000 }),
+          }).catch(() => {});
+        } catch (_) {}
+      }
 
       const freshConv = await base44.asServiceRole.agents.getConversation(conversationId);
       const msgs = freshConv.messages || [];
@@ -370,7 +384,7 @@ Deno.serve(async (req) => {
     }
 
     // If we got here, bot didn't reply in time — send a friendly fallback message
-    console.log(`No bot reply within 15s for ${idMessage}. Sending fallback message.`);
+    console.log(`No bot reply within 25s for ${idMessage}. Sending fallback message.`);
     try {
       const fallbackMessages = [
         'עדיין עובד/ת על זה, אל דאגה! ⏳ תגובה בדרך',
