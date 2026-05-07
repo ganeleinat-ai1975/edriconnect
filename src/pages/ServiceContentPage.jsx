@@ -128,7 +128,7 @@ export default function ServiceContentPage() {
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <Checkbox checked={selected.includes(item.id)} onCheckedChange={() => toggleSelect(item.id)} className="mt-1" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2"><div className="p-1.5 rounded-md bg-primary/10"><Icon className="w-4 h-4 text-primary" /></div><span className="text-sm font-bold">{item.title}</span></div>
                           <div className="flex gap-1">
