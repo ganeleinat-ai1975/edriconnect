@@ -287,20 +287,20 @@ Deno.serve(async (req) => {
     // ===== POLL FOR BOT REPLY (max 25 seconds) =====
     let botReply = '';
     const pollStart = Date.now();
-    let refreshedTyping = false;
+    let lastTypingRefresh = pollStart;
 
     while (Date.now() - pollStart < 25000) {
       await new Promise(r => setTimeout(r, 500)); // wait 500ms between checks
 
-      // Refresh typing indicator after 7s so the user doesn't see silence
-      if (!refreshedTyping && Date.now() - pollStart > 7000) {
-        refreshedTyping = true;
+      // Refresh typing indicator every 4s with short 5s bursts (avoids blocking Green API queue)
+      if (Date.now() - lastTypingRefresh > 4000) {
+        lastTypingRefresh = Date.now();
         try {
           const typingUrl = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
           fetch(typingUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId, typingTime: 15000 }),
+            body: JSON.stringify({ chatId, typingTime: 5000 }),
           }).catch(() => {});
         } catch (_) {}
       }
