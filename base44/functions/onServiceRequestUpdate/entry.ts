@@ -321,6 +321,11 @@ Deno.serve(async (req) => {
     // Build and send bot message immediately via WhatsApp
     let botSent = false;
     if (botTrigger) {
+      // Check if WhatsApp bot is enabled (respect the toggle!)
+      const botEnabledSettings = await base44.asServiceRole.entities.SystemSetting.filter({ key: 'whatsapp_bot_enabled' });
+      const botEnabled = botEnabledSettings.length > 0 && botEnabledSettings[0].value === 'true';
+
+      // Check if this phone is a test phone (always allowed)
       const fullRequest = await base44.asServiceRole.entities.ServiceRequest.get(requestId);
       let contactName = fullRequest.contact_name || '';
       let contactPhone = fullRequest.contact_phone || '';
@@ -336,7 +341,25 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log(`Processing bot trigger: ${botTrigger}`, { contactName, contactPhone, conversationId });
+      let isTestPhone = false;
+      if (!botEnabled && contactPhone) {
+        const testPhoneSettings = await base44.asServiceRole.entities.SystemSetting.filter({ key: 'whatsapp_test_phones' });
+        const testPhonesStr = testPhoneSettings.length > 0 ? testPhoneSettings[0].value : '';
+        const testPhones = testPhonesStr.split(',').map(p => p.trim().replace(/[\s\-\+]/g, '')).filter(Boolean);
+        const normalizedTestPhones = testPhones.map(p => p.startsWith('0') ? '972' + p.substring(1) : p);
+        let cleanP = contactPhone.replace(/[\s\-\+]/g, '');
+        if (cleanP.startsWith('0')) cleanP = '972' + cleanP.substring(1);
+        isTestPhone = normalizedTestPhones.includes(cleanP);
+      }
+
+      if (!botEnabled && !isTestPhone) {
+        console.log(`WhatsApp bot is disabled and ${contactPhone} is not a test phone — skipping auto-send for trigger ${botTrigger}`);
+        // Still clear pending_bot_message since we're not sending
+        await base44.asServiceRole.entities.ServiceRequest.update(requestId, { pending_bot_message: '' });
+        return Response.json({ ok: true, updates, timelineCount: timelineEntries.length, botTrigger, botSent: false, reason: 'bot_disabled' });
+      }
+
+      console.log(`Processing bot trigger: ${botTrigger}`, { contactName, contactPhone, conversationId, botEnabled, isTestPhone });
 
       const botResult = await buildBotMessage(base44, botTrigger, fullRequest, contactName);
 
@@ -590,16 +613,20 @@ async function buildBotMessage(base44, trigger, fullRequest, contactName) {
 
   if (trigger === 'questionnaire_completed_awaiting_payment') {
     // Questionnaire done → send payment request only (Paybox + Bit QR follow-up)
+    console.log('Building message for questionnaire_completed_awaiting_payment');
     const botContentRecords = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_payment_only_request' });
+    console.log(`Found ${botContentRecords.length} BotContent records for consultation_payment_only_request`);
     const paymentContent = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'payment_link' });
     const paymentUrl = paymentContent.length > 0 ? paymentContent[0].url : '';
+    console.log(`Payment URL: ${paymentUrl ? paymentUrl.substring(0, 50) + '...' : 'MISSING!'}`);
 
     let mainMessage = '';
     if (botContentRecords.length > 0) {
       mainMessage = botContentRecords[0].content.replace('{קישור_תשלום}', paymentUrl);
     } else {
-      mainMessage = `מעולה! עכשיו נמשיך לשלב התשלום 💳\n\nהנה קישור לתשלום:\n${paymentUrl}\n\nלאחר ביצוע התשלום, תשלח הודעה ממני שהתשלום התקבל. המתן/י להודעה שלי 🌸`;
+      mainMessage = `תודה על מילוי השאלון! לפני שנתקדם לתיאום פגישת הייעוץ, יש לבצע את התשלום:\n${paymentUrl}\n\nלאחר שנקבל את אישור התשלום, נשלח לך הודעת אישור ונמשיך לתיאום הפגישה.\n\n⏳ לידיעתך, העדכון האוטומטי עלול לקחת מספר דקות.`;
     }
+    console.log(`Main message length: ${mainMessage.length}`);
 
     // Fetch Bit QR image for follow-up
     const followUpMessages = [];
@@ -607,11 +634,15 @@ async function buildBotMessage(base44, trigger, fullRequest, contactName) {
       const bitQrContent = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'general', content_type: 'image', sub_type: 'bit_qr' });
       if (bitQrContent.length > 0 && bitQrContent[0].url) {
         followUpMessages.push(`[FILE:${bitQrContent[0].url}:ברקוד ביט לתשלום.png]`);
+        console.log('Bit QR image found and added to follow-up');
+      } else {
+        console.log('No Bit QR image found in ServiceContent');
       }
     } catch (e) {
       console.warn('Could not fetch Bit QR image:', e.message);
     }
 
+    console.log(`Returning message with ${followUpMessages.length} follow-ups`);
     return { message: mainMessage, followUpMessages };
   }
 
