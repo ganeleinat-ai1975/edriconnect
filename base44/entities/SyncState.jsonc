@@ -1,0 +1,13 @@
+{
+  "name": "SyncState",
+  "type": "object",
+  "properties": {
+    "history_id": {
+      "type": "string",
+      "description": "Gmail history ID for incremental sync"
+    }
+  },
+  "required": [
+    "history_id"
+  ]
+}
