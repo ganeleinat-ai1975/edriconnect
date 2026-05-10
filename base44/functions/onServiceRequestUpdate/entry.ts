@@ -752,33 +752,23 @@ async function buildBotMessage(base44, trigger, fullRequest, contactName) {
       ? new Date(fullRequest.scheduled_date_clinic).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
       : '';
 
+    let mainMsg = '';
     if (confirmRecords.length > 0) {
-      return confirmRecords[0].content;
+      mainMsg = confirmRecords[0].content;
+    } else {
+      mainMsg = `מצוין! שתי הפגישות נקבעו בהצלחה 🌷\n1. זמינות בווצאפ — ${whatsappTime}\n2. ייעוץ מלא — ${clinicTime}\n\nנתראה אז. בהצלחה!`;
     }
-    return `מצוין! שתי הפגישות נקבעו בהצלחה 🌷\n1. זמינות בווצאפ — ${whatsappTime}\n2. ייעוץ מלא — ${clinicTime}\n\nנתראה אז. בהצלחה!`;
+
+    // Add location directions + photo + post_directions_prompt as follow-ups
+    const followUpMessages = await getLocationFollowUps(base44);
+    return { message: mainMsg, followUpMessages };
   }
 
   return '';
 }
 
-// --- Helper: fetch appointment message + follow-up messages (location photo + post_directions_prompt) ---
-async function getAppointmentMessage(base44, timeStr) {
-  const records = await base44.asServiceRole.entities.BotContent.filter({ key: 'appointment_scheduled' });
-  let msg = '';
-  if (records.length > 0 && records[0].content) {
-    msg = records[0].content;
-    if (!timeStr) {
-      msg = msg.replace(/\n?.*\{time\}.*\n?/g, '');
-    } else {
-      msg = msg.replace('{time}', timeStr);
-    }
-  } else {
-    msg = timeStr
-      ? `✅ נקבע מועד לפגישה! 🎉\nיום ושעה: ${timeStr}\n\nנשמח לראותך! 😊`
-      : `✅ נקבע מועד לפגישה! 🎉\n\nנשמח לראותך! 😊`;
-  }
-
-  // Fetch follow-up messages (location photo + post_directions_prompt)
+// --- Helper: fetch location follow-up messages (shared by scheduled_* and both_appointments_scheduled) ---
+async function getLocationFollowUps(base44) {
   const followUpMessages = [];
 
   try {
@@ -801,5 +791,26 @@ async function getAppointmentMessage(base44, timeStr) {
     console.warn('Could not fetch post_directions_prompt:', e.message);
   }
 
+  return followUpMessages;
+}
+
+// --- Helper: fetch appointment message + follow-up messages ---
+async function getAppointmentMessage(base44, timeStr) {
+  const records = await base44.asServiceRole.entities.BotContent.filter({ key: 'appointment_scheduled' });
+  let msg = '';
+  if (records.length > 0 && records[0].content) {
+    msg = records[0].content;
+    if (!timeStr) {
+      msg = msg.replace(/\n?.*\{time\}.*\n?/g, '');
+    } else {
+      msg = msg.replace('{time}', timeStr);
+    }
+  } else {
+    msg = timeStr
+      ? `✅ נקבע מועד לפגישה! 🎉\nיום ושעה: ${timeStr}\n\nנשמח לראותך! 😊`
+      : `✅ נקבע מועד לפגישה! 🎉\n\nנשמח לראותך! 😊`;
+  }
+
+  const followUpMessages = await getLocationFollowUps(base44);
   return { message: msg, followUpMessages };
 }
