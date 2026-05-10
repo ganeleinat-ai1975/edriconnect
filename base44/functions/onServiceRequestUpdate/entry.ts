@@ -759,8 +759,23 @@ async function buildBotMessage(base44, trigger, fullRequest, contactName) {
       mainMsg = `מצוין! שתי הפגישות נקבעו בהצלחה 🌷\n1. זמינות בווצאפ — ${whatsappTime}\n2. ייעוץ מלא — ${clinicTime}\n\nנתראה אז. בהצלחה!`;
     }
 
-    // Add location directions + photo + post_directions_prompt as follow-ups
-    const followUpMessages = await getLocationFollowUps(base44);
+    // Add consultation-specific directions + location photo + post_directions_prompt as follow-ups
+    const followUpMessages = [];
+
+    // Fetch consultation_directions (separate from appointment_scheduled)
+    try {
+      const directionsRecords = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_directions' });
+      if (directionsRecords.length > 0 && directionsRecords[0].content) {
+        followUpMessages.push(directionsRecords[0].content);
+      }
+    } catch (e) {
+      console.warn('Could not fetch consultation_directions:', e.message);
+    }
+
+    // Add location photo + post_directions_prompt
+    const locationFollowUps = await getLocationFollowUps(base44);
+    followUpMessages.push(...locationFollowUps);
+
     return { message: mainMsg, followUpMessages };
   }
 
