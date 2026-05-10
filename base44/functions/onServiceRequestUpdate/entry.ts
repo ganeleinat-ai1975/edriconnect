@@ -575,12 +575,13 @@ async function buildBotMessage(base44, trigger, fullRequest, contactName) {
     }
     const infoText = infoRecords[0].content;
 
-    const whatsappLinkSettings = await base44.asServiceRole.entities.SystemSetting.filter({ key: 'consultation_whatsapp_link' });
-    if (!whatsappLinkSettings.length) {
-      console.error('MISSING SystemSetting: consultation_whatsapp_link');
+    // Fetch WhatsApp calendar link from ServiceContent (4-layer architecture)
+    const whatsappLinkContent = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'external_link', sub_type: 'whatsapp_appointment' });
+    if (!whatsappLinkContent.length) {
+      console.error('MISSING ServiceContent: consultation/external_link/whatsapp_appointment');
       return '';
     }
-    const whatsappUrl = whatsappLinkSettings[0].value;
+    const whatsappUrl = whatsappLinkContent[0].url;
 
     return `${infoText.replace('{שם}', contactName)}\n\nקישור לקביעת פגישת ווצאפ:\n${whatsappUrl}\n\nלאחר קביעת התור, כתוב/י "קבעתי" ✓`;
   }
@@ -724,12 +725,13 @@ async function buildBotMessage(base44, trigger, fullRequest, contactName) {
     }
     const introText = introRecords[0].content;
 
-    const linkSettings = await base44.asServiceRole.entities.SystemSetting.filter({ key: 'consultation_full_link' });
-    if (!linkSettings.length) {
-      console.error('MISSING SystemSetting: consultation_full_link');
+    // Fetch full consultation calendar link from ServiceContent (4-layer architecture)
+    const fullLinkContent = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'external_link', sub_type: 'clinic_appointment' });
+    if (!fullLinkContent.length) {
+      console.error('MISSING ServiceContent: consultation/external_link/clinic_appointment');
       return '';
     }
-    const fullLink = linkSettings[0].value;
+    const fullLink = fullLinkContent[0].url;
 
     const targetFriday = fullRequest.target_friday || '';
     const linkWithDate = targetFriday ? `${fullLink}?date=${targetFriday}` : fullLink;
