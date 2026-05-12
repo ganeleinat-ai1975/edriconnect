@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
         console.log(`Found conversation ${conversationId} from message logs`);
         // Cache for fast future lookups
         if (!cachedConvSetting?.length) {
-          base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId }).catch(() => {});
+          base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId, category: 'whatsapp' }).catch(() => {});
         }
       }
     }
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         });
         conversationId = conversation.id;
         // Cache for fast future lookups
-        base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId }).catch(() => {});
+        base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId, category: 'whatsapp' }).catch(() => {});
       } catch (createErr) {
         console.error('Failed to create conversation:', createErr.message);
         return Response.json({ error: 'Failed to create conversation' }, { status: 500 });
@@ -300,9 +300,9 @@ Deno.serve(async (req) => {
       const rMsgs = ['רגע קטן 💜', 'אני כבר על זה ✨', 'כמעט שם 🌸', 'ממש בדרך 🙏'];
       const rMsg = rMsgs[Math.floor(Math.random() * rMsgs.length)];
       const _su = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
-      fetch(_su, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, message: rMsg}) }).catch(() => {});
+      await fetch(_su, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, message: rMsg}) }).catch(() => {});
       const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
-      fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, typingTime: 30000}) }).catch(() => {});
+      await fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, typingTime: 30000}) }).catch(() => {});
     }
 
     // ===== SEND TO BOT =====
