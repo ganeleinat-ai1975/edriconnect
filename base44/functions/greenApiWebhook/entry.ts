@@ -302,7 +302,7 @@ Deno.serve(async (req) => {
       await fetch(_su, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, message: rMsg}) }).catch(() => {});
             await new Promise(r => setTimeout(r, 1500));
       const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
-      fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, typingTime: 30000}) }).catch(() => {});
+          fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId, typingTime: 30000 }) }).then(r => r.text().then(t => console.log('TYPING_DIAG', r.status, t))).catch(e => console.error('TYPING_ERROR:', e.message));
     }
 
     // ===== SEND TO BOT =====
