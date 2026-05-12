@@ -60,6 +60,8 @@ Deno.serve(async (req) => {
 
     // ===== TYPING INDICATOR — sent immediately, before any DB queries =====
     fetch(`https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, typingTime: 30000 }) }).catch(() => {});
+    // Pre-fetch phone logs in background — runs parallel with all DB queries below
+    const phoneLogsPromise = base44.asServiceRole.entities.WhatsAppMessageLog.filter({ phone }, '-created_date', 30);
 
     // ===== CHECK IF WHATSAPP BOT IS ENABLED (or test phone) =====
     console.log('Q1 start', Date.now());
@@ -177,7 +179,7 @@ Deno.serve(async (req) => {
 
     // ===== SEND THINKING INDICATOR =====
     try {
-      const existingLogs = await base44.asServiceRole.entities.WhatsAppMessageLog.filter({ phone: phone });
+      const existingLogs = await phoneLogsPromise;
       const isFirstMessage = existingLogs.length === 0;
 
       if (isFirstMessage) {
@@ -220,7 +222,7 @@ Deno.serve(async (req) => {
 
     // 2. Fallback: find recent conversation for this phone from message logs
     if (!conversationId) {
-      const recentLogs = await base44.asServiceRole.entities.WhatsAppMessageLog.filter({ phone: phone });
+      const recentLogs = await phoneLogsPromise;
       const withConv = recentLogs.filter(l => l.conversation_id);
       if (withConv.length > 0) {
         withConv.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
