@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const token = Deno.env.get('GREEN_API_TOKEN');
 
     // ===== TYPING INDICATOR — sent immediately, before any DB queries =====
-    fetch(`https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, typingTime: 30000 }) }).catch(() => {});
+    fetch(`https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, typingTime: 15000 }) }).catch(() => {});
     // Pre-fetch phone logs in background — runs parallel with all DB queries below
     const phoneLogsPromise = base44.asServiceRole.entities.WhatsAppMessageLog.filter({ phone }, '-created_date', 30);
 
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
         fetch(typingUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId, typingTime: 60000 }),
+          body: JSON.stringify({ chatId, typingTime: 15000 }),
         }).catch(() => {});
       }
     } catch (typErr) {
@@ -300,9 +300,8 @@ Deno.serve(async (req) => {
       const rMsg = rMsgs[Math.floor(Math.random() * rMsgs.length)];
       const _su = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
       await fetch(_su, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, message: rMsg}) }).catch(() => {});
-            await new Promise(r => setTimeout(r, 1500));
-      const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
-          fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId, typingTime: 30000 }) }).then(r => r.text().then(t => console.log('TYPING_DIAG', r.status, t))).catch(e => console.error('TYPING_ERROR:', e.message));
+            const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
+          fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId, typingTime: 15000 }) }).then(r => r.text().then(t => console.log('TYPING_DIAG', r.status, t))).catch(e => console.error('TYPING_ERROR:', e.message));
     }
 
     // ===== SEND TO BOT =====
