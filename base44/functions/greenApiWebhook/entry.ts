@@ -294,15 +294,15 @@ Deno.serve(async (req) => {
 
     // Count messages BEFORE sending
     const msgCountBefore = (conversation.messages || []).length;
-
     // ===== REASSURANCE MESSAGE before LLM (user sees activity during long wait) =====
     if ((conversation.messages || []).length > 1) {
       const rMsgs = ['רגע קטן 💜', 'אני כבר על זה ✨', 'כמעט שם 🌸', 'ממש בדרך 🙏'];
       const rMsg = rMsgs[Math.floor(Math.random() * rMsgs.length)];
       const _su = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
       await fetch(_su, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, message: rMsg}) }).catch(() => {});
+            await new Promise(r => setTimeout(r, 1500));
       const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
-      await fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, typingTime: 30000}) }).catch(() => {});
+      fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, typingTime: 30000}) }).catch(() => {});
     }
 
     // ===== SEND TO BOT =====
