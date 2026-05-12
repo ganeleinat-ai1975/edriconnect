@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
 
       if (msgs.length > expectedIndex) {
         for (let i = msgs.length - 1; i >= expectedIndex; i--) {
-          if (msgs[i].role === 'assistant' && msgs[i].content) {
+          if (msgs[i].role === 'assistant' && msgs[i].content && msgs[i].content !== '<empty message>') {
             botReply = msgs[i].content;
             break;
           }
