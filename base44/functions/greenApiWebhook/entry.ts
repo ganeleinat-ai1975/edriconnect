@@ -582,6 +582,111 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // ===== FAST PATH: FP-C6 — awaiting_additional_reading_response + "כן" → send URL + continue_process_question =====
+    {
+      const _c6Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _c6Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
+      const _c6Positive = ['כן','בטח','אשמח','כמובן','יאללה','קדימה','סבבה','אוקי','ok','בוא נמשיך','רוצה','מעוניינת'].includes(_c6Norm);
+      if (
+        serviceRequest?.service_type === 'consultation' &&
+        serviceRequest?.current_step === 'awaiting_additional_reading_response' &&
+        _c6Positive
+      ) {
+        console.log('FAST_PATH: FP-C6 additional reading yes → send URL + continue_process_question');
+        try {
+          const _c6Sc = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'external_link', sub_type: 'additional_reading' });
+          const _c6Cq = await base44.asServiceRole.entities.BotContent.filter({ key: 'continue_process_question' });
+          if (_c6Sc.length > 0 && _c6Cq.length > 0) {
+            await fetch(_c6Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _c6Sc[0].url }) });
+            await fetch(_c6Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _c6Cq[0].content }) });
+            await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { current_step: 'awaiting_continue_process' });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_c6`, phone, direction: 'outgoing',
+              text: '[fast_path_c6_additional_reading_url]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'c6_additional_reading_yes' });
+          }
+          console.log('FAST_PATH FP-C6: content not found, falling to LLM');
+        } catch (fpC6Err) {
+          console.warn(`FAST_PATH FP-C6 error: ${fpC6Err.message} — falling to LLM`);
+        }
+      }
+    }
+
+    // ===== FAST PATH: FP-C7 — awaiting_additional_reading_response + "לא" → privacy message (step 5) =====
+    {
+      const _c7Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _c7Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
+      const _c7Negative = ['לא','לא תודה','לא עכשיו','לא צריך','לא רוצה'].includes(_c7Norm);
+      if (
+        serviceRequest?.service_type === 'consultation' &&
+        serviceRequest?.current_step === 'awaiting_additional_reading_response' &&
+        _c7Negative
+      ) {
+        console.log('FAST_PATH: FP-C7 additional reading no → privacy message');
+        try {
+          const _c7Contents = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_privacy_message' });
+          if (_c7Contents.length > 0) {
+            await fetch(_c7Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _c7Contents[0].content }) });
+            await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { current_step: 'awaiting_privacy_response' });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_c7`, phone, direction: 'outgoing',
+              text: '[fast_path_c7_privacy]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'c7_skip_reading_to_privacy' });
+          }
+          console.log('FAST_PATH FP-C7: content not found, falling to LLM');
+        } catch (fpC7Err) {
+          console.warn(`FAST_PATH FP-C7 error: ${fpC7Err.message} — falling to LLM`);
+        }
+      }
+    }
+
+    // ===== FAST PATH: FP-C8 — awaiting_continue_process + "כן" → privacy message (step 5) =====
+    {
+      const _c8Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _c8Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
+      const _c8Positive = ['כן','בטח','אשמח','כמובן','יאללה','קדימה','סבבה','אוקי','ok','בוא נמשיך','רוצה','מעוניינת'].includes(_c8Norm);
+      if (
+        serviceRequest?.service_type === 'consultation' &&
+        serviceRequest?.current_step === 'awaiting_continue_process' &&
+        _c8Positive
+      ) {
+        console.log('FAST_PATH: FP-C8 continue process yes → privacy message');
+        try {
+          const _c8Contents = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_privacy_message' });
+          if (_c8Contents.length > 0) {
+            await fetch(_c8Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _c8Contents[0].content }) });
+            await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { current_step: 'awaiting_privacy_response' });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_c8`, phone, direction: 'outgoing',
+              text: '[fast_path_c8_privacy]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'c8_continue_to_privacy' });
+          }
+          console.log('FAST_PATH FP-C8: content not found, falling to LLM');
+        } catch (fpC8Err) {
+          console.warn(`FAST_PATH FP-C8 error: ${fpC8Err.message} — falling to LLM`);
+        }
+      }
+    }
+
 
     // ===== END FAST PATH =====
 
