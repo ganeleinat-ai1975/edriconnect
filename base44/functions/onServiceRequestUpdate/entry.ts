@@ -400,18 +400,30 @@ Deno.serve(async (req) => {
         }
         textMessage = textMessage.replace(/\n{3,}/g, '\n\n').trim();
 
-        // Send text
+        // Send text — retry up to 3 times on failure
         let sendOk = true;
         if (textMessage) {
           const sendUrl = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
-          const sendResp = await fetch(sendUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId, message: textMessage }),
-          });
-          if (!sendResp.ok) {
-            console.error('Failed to send immediate message:', await sendResp.text());
-            sendOk = false;
+          sendOk = false;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              if (attempt > 1) await new Promise(r => setTimeout(r, 1500 * attempt));
+              const sendResp = await fetch(sendUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, message: textMessage }),
+              });
+              if (sendResp.ok) {
+                sendOk = true;
+                console.log(`onServiceRequestUpdate: send succeeded on attempt ${attempt} for ${chatId}`);
+                break;
+              } else {
+                const errBody = await sendResp.text();
+                console.error(`onServiceRequestUpdate: send attempt ${attempt} failed (status ${sendResp.status}) for ${chatId}: ${errBody}`);
+              }
+            } catch (sendErr) {
+              console.error(`onServiceRequestUpdate: send attempt ${attempt} threw: ${sendErr.message}`);
+            }
           }
         }
 
