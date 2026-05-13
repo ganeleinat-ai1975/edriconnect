@@ -408,6 +408,39 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // ===== FAST PATH: FP-C1 — consultation "צפיתי" → topic selection =====
+    {
+      const _c1Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _c1Norm = text.trim().replace(/[*"'״]/g, '');
+      if (
+        serviceRequest?.service_type === 'consultation' &&
+        !serviceRequest?.sub_type &&
+        !serviceRequest?.current_step &&
+        _c1Norm === 'צפיתי'
+      ) {
+        console.log('FAST_PATH: FP-C1 consultation tsafiti → topic selection');
+        try {
+          const _c1Contents = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_topic_selection' });
+          if (_c1Contents.length > 0) {
+            await fetch(_c1Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _c1Contents[0].content }) });
+            await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { current_step: 'awaiting_topic_choice' });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_c1`, phone, direction: 'outgoing',
+              text: '[fast_path_c1_topic_selection]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'c1_topic_selection' });
+          }
+          console.log('FAST_PATH FP-C1: BotContent not found, falling to LLM');
+        } catch (fpC1Err) {
+          console.warn(`FAST_PATH FP-C1 error: ${fpC1Err.message} — falling to LLM`);
+        }
+      }
+    }
     // ===== END FAST PATH =====
 
     // ===== SEND TO BOT =====
