@@ -337,17 +337,6 @@ Deno.serve(async (req) => {
             text: '[fast_path_fp0_greeting]', status: 'replied', chat_id: chatId,
             conversation_id: conversationId,
           });
-          // Create conversation so next message goes to LLM (prevents FP-0 re-triggering)
-          try {
-            const _fp0Conv = await base44.asServiceRole.agents.createConversation({
-              agent_name: agentName,
-              metadata: { name: phone, phone, source: 'whatsapp' },
-            });
-            base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: _fp0Conv.id, category: 'whatsapp' }).catch(() => {});
-          } catch (_fp0ConvErr) {
-            console.warn('FP-0: failed to create conversation:', _fp0ConvErr.message);
-          }
-          return Response.json({ ok: true, fast_path: 'fp0_greeting' });
         }
         console.log('FAST_PATH FP-0: BotContent not found, falling to LLM');
       } catch (fp0Err) {
