@@ -317,6 +317,34 @@ Deno.serve(async (req) => {
           fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId, typingTime: 15000 }) }).then(r => r.text().then(t => console.log('TYPING_DIAG', r.status, t))).catch(e => console.error('TYPING_ERROR:', e.message));
     }
 
+    // ===== FAST PATH: FP-0 — welcome message for new user (first message ever) =====
+    // Condition: no Contact yet + no cached conversation (cachedConvSetting empty = truly first message)
+    if (!contact && (!cachedConvSetting || cachedConvSetting.length === 0)) {
+      console.log('FAST_PATH: FP-0 welcome for new user');
+      try {
+        const _fp0Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+        const _fp0Contents = await base44.asServiceRole.entities.BotContent.filter({ key: 'greeting' });
+        if (_fp0Contents.length > 0) {
+          await fetch(_fp0Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chatId, message: _fp0Contents[0].content }) });
+          await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+            id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+            text: text.substring(0, 500), status: 'replied', chat_id: chatId,
+            conversation_id: conversationId,
+          });
+          await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+            id_message: `out_${Date.now()}_fp0`, phone, direction: 'outgoing',
+            text: '[fast_path_fp0_greeting]', status: 'replied', chat_id: chatId,
+            conversation_id: conversationId,
+          });
+          return Response.json({ ok: true, fast_path: 'fp0_greeting' });
+        }
+        console.log('FAST_PATH FP-0: BotContent not found, falling to LLM');
+      } catch (fp0Err) {
+        console.warn(`FAST_PATH FP-0 error: ${fp0Err.message} — falling to LLM`);
+      }
+    }
+
     // ===== FAST PATH: consultation disease selection (no LLM needed) =====
     {
       const DISEASE_MAP = {
