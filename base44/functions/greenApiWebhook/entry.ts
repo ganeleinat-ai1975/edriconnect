@@ -337,6 +337,16 @@ Deno.serve(async (req) => {
             text: '[fast_path_fp0_greeting]', status: 'replied', chat_id: chatId,
             conversation_id: conversationId,
           });
+          // Create conversation so next message goes to LLM (prevents FP-0 re-triggering)
+          try {
+            const _fp0Conv = await base44.asServiceRole.agents.createConversation({
+              agent_name: agentName,
+              metadata: { name: phone, phone, source: 'whatsapp' },
+            });
+            base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: _fp0Conv.id, category: 'whatsapp' }).catch(() => {});
+          } catch (_fp0ConvErr) {
+            console.warn('FP-0: failed to create conversation:', _fp0ConvErr.message);
+          }
           return Response.json({ ok: true, fast_path: 'fp0_greeting' });
         }
         console.log('FAST_PATH FP-0: BotContent not found, falling to LLM');
@@ -683,41 +693,6 @@ Deno.serve(async (req) => {
           console.log('FAST_PATH FP-C8: content not found, falling to LLM');
         } catch (fpC8Err) {
           console.warn(`FAST_PATH FP-C8 error: ${fpC8Err.message} — falling to LLM`);
-        }
-      }
-    }
-    // ===== FAST PATH: FP-C9 — awaiting_privacy_response + yes → questionnaire link =====
-    {
-      const _c9Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
-      const _c9Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
-      const _c9Positive = ['כן','בטח','אשמח','כמובן','יאללה','קדימה','סבבה','אוקי','ok','בוא נמשיך','רוצה','מעוניינת','מסכימה','מסכים','בהחלט'].includes(_c9Norm);
-      if (
-        serviceRequest?.service_type === 'consultation' &&
-        serviceRequest?.current_step === 'awaiting_privacy_response' &&
-        _c9Positive
-      ) {
-        console.log('FAST_PATH: FP-C9 privacy yes → questionnaire link');
-        try {
-          const _c9Sc = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'questionnaire' });
-          const _c9Bot = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_questionnaire_only' });
-          if (_c9Sc.length > 0 && _c9Bot.length > 0) {
-            const _c9Msg = _c9Bot[0].content.replace('{קישור_שאלון}', _c9Sc[0].url);
-            await fetch(_c9Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ chatId, message: _c9Msg }) });
-            await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { current_step: 'waiting_for_questionnaire' });
-            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
-              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
-              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
-            });
-            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
-              id_message: `out_${Date.now()}_fp_c9`, phone, direction: 'outgoing',
-              text: '[fast_path_c9_questionnaire]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
-            });
-            return Response.json({ ok: true, fast_path: 'c9_questionnaire' });
-          }
-          console.log('FAST_PATH FP-C9: content not found, falling to LLM');
-        } catch (fpC9Err) {
-          console.warn(`FAST_PATH FP-C9 error: ${fpC9Err.message} — falling to LLM`);
         }
       }
     }
