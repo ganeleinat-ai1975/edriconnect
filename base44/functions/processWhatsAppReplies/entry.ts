@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       console.log(`processWhatsAppReplies: bot disabled, but processing test phones: ${testPhonesList.join(', ')}`);
     }
 
-    // ===== PROCESS PENDING BOT MESSAGES =====
+    // ===== PROCESS PENDING BOT MESSAGES — clear flags but don't send (bot already confirmed enabled above) =====
     const instanceId = Deno.env.get('GREEN_API_INSTANCE_ID');
     const token = Deno.env.get('GREEN_API_TOKEN');
 
@@ -60,11 +60,13 @@ Deno.serve(async (req) => {
     let pendingSentCount = 0;
     for (const sr of pendingBotRequests) {
       try {
+        // Rate limit: delay between different phones to avoid WhatsApp spam detection
         if (pendingSentCount > 0) {
           console.log('processWhatsAppReplies: waiting 5s between sends (anti-spam)');
           await new Promise(r => setTimeout(r, 5000));
         }
 
+        // If bot is disabled, only process test phones
         if (!botEnabled) {
           let srPhone = (sr.contact_phone || '').replace(/[\s\-\+]/g, '');
           if (srPhone.startsWith('0')) srPhone = '972' + srPhone.substring(1);
@@ -76,20 +78,24 @@ Deno.serve(async (req) => {
 
         console.log(`processWhatsAppReplies: found pending_bot_message=${sr.pending_bot_message} for ${sr.id}`);
 
+        // Call onServiceRequestUpdate to generate the message
         const botResponse = await base44.asServiceRole.functions.invoke('onServiceRequestUpdate', {
           event: { type: 'update', entity_name: 'ServiceRequest', entity_id: sr.id },
           data: { ...sr, status: sr.pending_bot_message, conversation_id: sr.conversation_id },
           old_data: { ...sr, status: 'previous' },
         });
 
+        // functions.invoke returns {data, status, headers} — extract .data
         const botResult = botResponse?.data || botResponse;
         console.log('processWhatsAppReplies: botResult keys:', Object.keys(botResult || {}));
         const pendingMsg = botResult?.pendingBotMessage;
         if (pendingMsg?.message && pendingMsg?.contactPhone) {
+          // Send via WhatsApp
           let cleanPhone = pendingMsg.contactPhone.replace(/^whatsapp:/i, '').replace(/[\s\-\+]/g, '');
           if (cleanPhone.startsWith('0')) cleanPhone = '972' + cleanPhone.substring(1);
           const chatId = `${cleanPhone}@c.us`;
           
+          // Parse [FILE:url:filename] tags from pending message
           const pendingFileTagRegex = /\[FILE:(https?:\/\/[^\]:]+):([^\]]+)\]/g;
           const pendingFiles = [];
           let pendingText = pendingMsg.message;
@@ -100,6 +106,7 @@ Deno.serve(async (req) => {
           }
           pendingText = pendingText.replace(/\n{3,}/g, '\n\n').trim();
           
+          // Send text
           let pendingSendOk = true;
           if (pendingText) {
             const sendUrl = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
@@ -115,6 +122,7 @@ Deno.serve(async (req) => {
             }
           }
           
+          // Send files from main message
           for (const pf of pendingFiles) {
             try {
               const pfUrl = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${token}`;
@@ -129,6 +137,7 @@ Deno.serve(async (req) => {
             }
           }
 
+          // Send follow-up messages (location photo + post_directions_prompt)
           const followUps = pendingMsg.followUpMessages || [];
           for (const followUp of followUps) {
             try {
@@ -158,6 +167,7 @@ Deno.serve(async (req) => {
           }
           
           if (pendingSendOk) {
+            // Log outgoing for daily count
             await base44.asServiceRole.entities.WhatsAppMessageLog.create({
               id_message: `out_${Date.now()}_pb`,
               phone: cleanPhone,
@@ -170,6 +180,7 @@ Deno.serve(async (req) => {
             pendingSentCount++;
           }
 
+          // Also add to bot conversation if available
           if (pendingMsg.conversationId && /^[a-f0-9]{24}$/i.test(pendingMsg.conversationId)) {
             try {
               const conv = await base44.asServiceRole.agents.getConversation(pendingMsg.conversationId);
@@ -179,6 +190,7 @@ Deno.serve(async (req) => {
             }
           }
 
+          // Log in timeline
           await base44.asServiceRole.entities.ServiceRequestTimeline.create({
             service_request_id: sr.id,
             event_type: 'message_sent',
@@ -186,6 +198,8 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Clear the flag only if send succeeded (or there was nothing to send)
+        // If send failed, keep pending_bot_message so next scheduled run retries
         const shouldClearPending = !pendingMsg || pendingSendOk;
         if (shouldClearPending) {
           await base44.asServiceRole.entities.ServiceRequest.update(sr.id, { pending_bot_message: '', last_system_message: sr.pending_bot_message });
@@ -198,6 +212,7 @@ Deno.serve(async (req) => {
     }
 
     // ===== PROCESS PENDING WHATSAPP REPLIES =====
+    // Find all pending messages
     const pending = await base44.asServiceRole.entities.WhatsAppMessageLog.filter({ status: 'pending_reply' });
 
     if (pending.length === 0) {
@@ -211,6 +226,7 @@ Deno.serve(async (req) => {
 
     for (const msg of pending) {
       try {
+        // If bot is disabled, only process test phones
         if (!botEnabled) {
           let msgPhone = (msg.phone || msg.chat_id?.replace('@c.us', '') || '').replace(/[\s\-\+]/g, '');
           if (msgPhone.startsWith('0')) msgPhone = '972' + msgPhone.substring(1);
@@ -218,6 +234,7 @@ Deno.serve(async (req) => {
             continue;
           }
         }
+        // Timeout: if message is older than 5 minutes, mark as timeout
         const createdAt = new Date(msg.created_date);
         const ageMs = Date.now() - createdAt.getTime();
         if (ageMs > 5 * 60 * 1000) {
@@ -231,10 +248,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Get conversation and look for bot reply
         const conversation = await base44.asServiceRole.agents.getConversation(msg.conversation_id);
         const messages = conversation.messages || [];
         const expectedCount = msg.message_count_at_send || 0;
 
+        // Look for assistant message AFTER our user message
         let botReply = '';
         if (messages.length > expectedCount) {
           for (let i = messages.length - 1; i >= expectedCount; i--) {
@@ -246,10 +265,12 @@ Deno.serve(async (req) => {
         }
 
         if (!botReply) {
+          // Bot hasn't replied yet — will try again next run
           console.log(`No reply yet for ${msg.id_message} (${Math.round(ageMs / 1000)}s old)`);
           continue;
         }
 
+        // Parse [FILE:url:filename] tags from bot reply
         const fileTagRegex = /\[FILE:(https?:\/\/[^\]:]+):([^\]]+)\]/g;
         const fileUrls = [];
         let textMessage = botReply;
@@ -260,6 +281,7 @@ Deno.serve(async (req) => {
         }
         textMessage = textMessage.replace(/\n{3,}/g, '\n\n').trim();
         
+        // Send clean text message
         let sendSuccess = true;
         if (textMessage) {
           const sendUrl = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
@@ -275,6 +297,7 @@ Deno.serve(async (req) => {
           }
         }
         
+        // Send each file as a separate message
         for (const file of fileUrls) {
           try {
             const fileApiUrl = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${token}`;
@@ -295,6 +318,7 @@ Deno.serve(async (req) => {
 
         if (sendSuccess) {
           await base44.asServiceRole.entities.WhatsAppMessageLog.update(msg.id, { status: 'replied' });
+          // Log outgoing for daily count
           await base44.asServiceRole.entities.WhatsAppMessageLog.create({
             id_message: `out_${Date.now()}_pr`,
             phone: msg.phone || msg.chat_id?.replace('@c.us', '') || '',
