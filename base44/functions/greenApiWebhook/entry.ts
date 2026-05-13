@@ -243,6 +243,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ===== FALLBACK: load ServiceRequest by conversation_id if not found via contact =====
+    if (!serviceRequest && conversationId) {
+      try {
+        const _srByConv = await base44.asServiceRole.entities.ServiceRequest.filter({ conversation_id: conversationId });
+        if (_srByConv.length > 0) {
+          serviceRequest = _srByConv[_srByConv.length - 1];
+          console.log('ServiceRequest found via conversation_id fallback:', serviceRequest.id, serviceRequest.service_type);
+        }
+      } catch (_srFbErr) {
+        console.warn('ServiceRequest fallback lookup failed:', _srFbErr.message);
+      }
+    }
+
     // 3. Try to load existing conversation
     if (conversationId) {
       try {
