@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const token = Deno.env.get('GREEN_API_TOKEN');
 
     // ===== TYPING INDICATOR — sent immediately, before any DB queries =====
-    fetch(`https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, typingTime: 15000 }) }).catch(() => {});
+    fetch(`https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, typingTime: 15000 }) }).catch(() => { });
     // Pre-fetch phone logs in background — runs parallel with all DB queries below
     const phoneLogsPromise = base44.asServiceRole.entities.WhatsAppMessageLog.filter({ phone }, '-created_date', 30);
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     ]);
     console.log('Q1 done', Date.now());
     const botEnabled = botEnabledSettings.length > 0 && botEnabledSettings[0].value === 'true';
-    
+
     if (!botEnabled) {
       // Check if this phone is in the test list
       const testPhoneSettings = await base44.asServiceRole.entities.SystemSetting.filter({ key: 'whatsapp_test_phones' });
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       const testPhones = testPhonesStr.split(',').map(p => p.trim().replace(/[\s\-\+]/g, '')).filter(Boolean);
       // Normalize test phones to 972 format
       const normalizedTestPhones = testPhones.map(p => p.startsWith('0') ? '972' + p.substring(1) : p);
-      
+
       if (!normalizedTestPhones.includes(phone)) {
         console.log(`WhatsApp bot is disabled and ${phone} is not a test phone. Skipping.`);
         return Response.json({ ok: true, skipped: true, reason: 'bot_disabled' });
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ chatId, typingTime: 15000 }),
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (typErr) {
       console.warn('Thinking indicator failed:', typErr.message);
@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
         console.log(`Found conversation ${conversationId} from message logs`);
         // Cache for fast future lookups
         if (!cachedConvSetting?.length) {
-          base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId, category: 'whatsapp' }).catch(() => {});
+          base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId, category: 'whatsapp' }).catch(() => { });
         }
       }
     }
@@ -272,7 +272,7 @@ Deno.serve(async (req) => {
         });
         conversationId = conversation.id;
         // Cache for fast future lookups
-        base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId, category: 'whatsapp' }).catch(() => {});
+        base44.asServiceRole.entities.SystemSetting.create({ key: 'phone_conv_' + phone, value: conversationId, category: 'whatsapp' }).catch(() => { });
       } catch (createErr) {
         console.error('Failed to create conversation:', createErr.message);
         return Response.json({ error: 'Failed to create conversation' }, { status: 500 });
@@ -299,9 +299,9 @@ Deno.serve(async (req) => {
       const rMsgs = ['רגע קטן 💜', 'אני כבר על זה ✨', 'כמעט שם 🌸', 'ממש בדרך 🙏'];
       const rMsg = rMsgs[Math.floor(Math.random() * rMsgs.length)];
       const _su = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
-      await fetch(_su, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({chatId, message: rMsg}) }).catch(() => {});
-            const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
-          fetch(_tu, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ chatId, typingTime: 15000 }) }).then(r => r.text().then(t => console.log('TYPING_DIAG', r.status, t))).catch(e => console.error('TYPING_ERROR:', e.message));
+      await fetch(_su, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, message: rMsg }) }).catch(() => { });
+      const _tu = `https://api.green-api.com/waInstance${instanceId}/sendTyping/${token}`;
+      fetch(_tu, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, typingTime: 15000 }) }).then(r => r.text().then(t => console.log('TYPING_DIAG', r.status, t))).catch(e => console.error('TYPING_ERROR:', e.message));
     }
 
     // ===== FAST PATH: consultation disease selection (no LLM needed) =====
@@ -337,11 +337,24 @@ Deno.serve(async (req) => {
                 conversation_id: conversationId, chat_id: chatId,
               });
               const _mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
-              await fetch(_mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId, message: `מיד שולחת לך את המידע על ${subType} 💜` }) });
+              await fetch(_mu, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, message: `מיד שולחת לך את המידע על ${subType} 💜` })
+              });
               const _fu = `https://api.green-api.com/waInstance${instanceId}/sendFileByUrl/${token}`;
-              await fetch(_fu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId, urlFile: fpVideos[0].url, fileName: `${subType}.mp4`, caption: '' }) });
+              const _fpVideoUrl = fpVideos[0].url;
+              const _fpVideoIsDirect = /\.(mp4|mov|avi|mkv|webm)(\?.*)?$/i.test(_fpVideoUrl);
+              if (_fpVideoIsDirect) {
+                await fetch(_fu, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chatId, urlFile: _fpVideoUrl, fileName: `${subType}.mp4`, caption: '' })
+                });
+              } else {
+                await fetch(_mu, {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chatId, message: _fpVideoUrl })
+                });
+              }
               const isAutism = subType === 'אוטיזם';
               if (!isAutism) {
                 const fpPdfs = await base44.asServiceRole.entities.ServiceContent.filter({
@@ -349,16 +362,29 @@ Deno.serve(async (req) => {
                 });
                 if (fpPdfs.length > 0) {
                   await new Promise(r => setTimeout(r, 1000));
-                  await fetch(_fu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chatId, urlFile: fpPdfs[0].url, fileName: `${subType}.pdf`, caption: '' }) });
+                  const _fpPdfUrl = fpPdfs[0].url;
+                  const _fpPdfIsDirect = /\.pdf(\?.*)?$/i.test(_fpPdfUrl);
+                  if (_fpPdfIsDirect) {
+                    await fetch(_fu, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ chatId, urlFile: _fpPdfUrl, fileName: `${subType}.pdf`, caption: '' })
+                    });
+                  } else {
+                    await fetch(_mu, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ chatId, message: _fpPdfUrl })
+                    });
+                  }
                 }
               }
               await new Promise(r => setTimeout(r, 1000));
               const confirmMsg = isAutism
                 ? 'לאחר שצפית, אנא כתוב/י *"צפיתי"* 🌸'
                 : 'לאחר שצפית וקראת, אנא כתוב/י *"צפיתי וקראתי"* 🌸';
-              await fetch(_mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chatId, message: confirmMsg }) });
+              await fetch(_mu, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatId, message: confirmMsg })
+              });
               if (serviceRequest) {
                 await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { sub_type: subType });
               }
@@ -415,7 +441,7 @@ Deno.serve(async (req) => {
         sentReassurance = true;
         const rMsgs = ['אל דאגה, אני עוד כאן ✨', 'אני עובד/ת, את/ה יכול/ה לשתות קפה בינתיים ☕', 'עוד קצת סבלנות, כמעט שם 💜', 'זה לוקח רגע, אבל ממש בדרך! 🌸'];
         const rMsg = rMsgs[Math.floor(Math.random() * rMsgs.length)];
-        fetch(`https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, message: rMsg }) }).catch(() => {});
+        fetch(`https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, message: rMsg }) }).catch(() => { });
       }
 
       // Refresh typing indicator every 4s with short 5s bursts (avoids blocking Green API queue)
@@ -427,8 +453,8 @@ Deno.serve(async (req) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chatId, typingTime: 5000 }),
-          }).catch(() => {});
-        } catch (_) {}
+          }).catch(() => { });
+        } catch (_) { }
       }
 
       const freshConv = await base44.asServiceRole.agents.getConversation(conversationId);
