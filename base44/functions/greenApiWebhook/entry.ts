@@ -754,6 +754,68 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // ===== FAST PATH: FP-U1 — "המשך" (non-post_lecture) → location_directions + post_directions_prompt =====
+    {
+      const _u1Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _u1Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
+      if (
+        _u1Norm === 'המשך' &&
+        serviceRequest?.service_type !== 'post_lecture'
+      ) {
+        console.log('FAST_PATH: FP-U1 המשך → location_directions');
+        try {
+          const _u1Dir = await base44.asServiceRole.entities.BotContent.filter({ key: 'location_directions' });
+          const _u1Prompt = await base44.asServiceRole.entities.BotContent.filter({ key: 'post_directions_prompt' });
+          if (_u1Dir.length > 0 && _u1Prompt.length > 0) {
+            await fetch(_u1Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _u1Dir[0].content }) });
+            await fetch(_u1Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _u1Prompt[0].content }) });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_u1`, phone, direction: 'outgoing',
+              text: '[fast_path_u1_directions]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'u1_location_directions' });
+          }
+          console.log('FAST_PATH FP-U1: BotContent not found, falling to LLM');
+        } catch (fpU1Err) {
+          console.warn(`FAST_PATH FP-U1 error: ${fpU1Err.message} — falling to LLM`);
+        }
+      }
+    }
+
+    // ===== FAST PATH: FP-U2 — "קבעתי" → appointment_confirmed =====
+    {
+      const _u2Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _u2Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
+      if (_u2Norm === 'קבעתי') {
+        console.log('FAST_PATH: FP-U2 קבעתי → appointment_confirmed');
+        try {
+          const _u2Contents = await base44.asServiceRole.entities.BotContent.filter({ key: 'appointment_confirmed' });
+          if (_u2Contents.length > 0) {
+            await fetch(_u2Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _u2Contents[0].content }) });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_u2`, phone, direction: 'outgoing',
+              text: '[fast_path_u2_appointment_confirmed]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'u2_appointment_confirmed' });
+          }
+          console.log('FAST_PATH FP-U2: BotContent not found, falling to LLM');
+        } catch (fpU2Err) {
+          console.warn(`FAST_PATH FP-U2 error: ${fpU2Err.message} — falling to LLM`);
+        }
+      }
+    }
+
 
 
 
