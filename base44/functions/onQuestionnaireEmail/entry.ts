@@ -199,23 +199,18 @@ Deno.serve(async (req) => {
           const freshReq = await base44.asServiceRole.entities.ServiceRequest.get(matchingReq.id);
           const paymentDone = freshReq.payment_confirmed === true;
 
-          let pendingMessage;
           if (paymentDone) {
             // Both conditions met — ready to schedule
-            pendingMessage = 'ready_to_schedule';
             await base44.asServiceRole.entities.ServiceRequest.update(matchingReq.id, {
               current_step: 'ready_to_schedule',
-              pending_bot_message: pendingMessage,
             });
           } else {
             // Questionnaire done but payment missing
-            pendingMessage = 'questionnaire_completed_awaiting_payment';
             await base44.asServiceRole.entities.ServiceRequest.update(matchingReq.id, {
               current_step: 'questionnaire_completed_awaiting_payment',
-              pending_bot_message: pendingMessage,
             });
           }
-          console.log('Set pending_bot_message:', pendingMessage, '(payment_confirmed:', paymentDone, ')');
+          console.log('onQuestionnaireEmail: current_step set (payment_confirmed:', paymentDone, ')');
         }
 
         console.log('Updated ServiceRequest to questionnaire_completed');
