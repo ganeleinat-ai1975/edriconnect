@@ -361,9 +361,8 @@ Deno.serve(async (req) => {
         '7': 'סרטן', 'סרטן': 'סרטן',
         '8': 'אוטיזם', 'אוטיזם': 'אוטיזם', 'אוטיזם ותסמונות גנטיות': 'אוטיזם',
       };
-      const convMsgs = conversation.messages || [];
-      const lastBotMsg = [...convMsgs].reverse().find(m => m.role === 'assistant')?.content || '';
-      const isAtDiseaseMenu = serviceRequest?.service_type === 'consultation' && lastBotMsg.includes('פוריות');
+      const isAtDiseaseMenu = serviceRequest?.service_type === 'consultation' &&
+        serviceRequest?.current_step === 'awaiting_disease_selection';
       if (isAtDiseaseMenu) {
         const normalized = text.trim();
         const subType = DISEASE_MAP[normalized] || DISEASE_MAP[normalized.split(/[\s,\.]/)[0]];
@@ -419,7 +418,7 @@ Deno.serve(async (req) => {
               await fetch(_mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId, message: confirmMsg }) });
               if (serviceRequest) {
-                await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { sub_type: subType });
+                await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { sub_type: subType, current_step: '' });
               }
               await base44.asServiceRole.entities.WhatsAppMessageLog.create({
                 id_message: `out_${Date.now()}_fp`, phone, direction: 'outgoing',
@@ -534,9 +533,9 @@ Deno.serve(async (req) => {
           if (_c3Contents.length > 0) {
             await fetch(_c3Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId, message: _c3Contents[0].content }) });
-            // Clear current_step so FP-C2 won't interfere with disease selection
+            // Set current_step so disease selection FP can fire
             await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, {
-              current_step: '',
+              current_step: 'awaiting_disease_selection',
             });
             await base44.asServiceRole.entities.WhatsAppMessageLog.create({
               id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
@@ -690,6 +689,41 @@ Deno.serve(async (req) => {
         }
       }
     }
+    // ===== FAST PATH: FP-C9 — awaiting_privacy_response + "כן" → send questionnaire link =====
+    {
+      const _c9Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
+      const _c9Norm = text.trim().replace(/[*"'״]/g, '').toLowerCase();
+      const _c9Positive = ['כן','בטח','אשמח','כמובן','יאללה','קדימה','סבבה','אוקי','ok','כו','בוא נמשיך','רוצה','מעוניינת'].includes(_c9Norm);
+      if (
+        serviceRequest?.service_type === 'consultation' &&
+        serviceRequest?.current_step === 'awaiting_privacy_response' &&
+        _c9Positive
+      ) {
+        console.log('FAST_PATH: FP-C9 privacy confirmed → send questionnaire link');
+        try {
+          const _c9Contents = await base44.asServiceRole.entities.BotContent.filter({ key: 'consultation_questionnaire_only' });
+          const _c9Sc = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'questionnaire' });
+          if (_c9Contents.length > 0 && _c9Sc.length > 0) {
+            const _c9Msg = _c9Contents[0].content.replace('{קישור_שאלון}', _c9Sc[0].url);
+            await fetch(_c9Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chatId, message: _c9Msg }) });
+            await base44.asServiceRole.entities.ServiceRequest.update(serviceRequest.id, { current_step: 'awaiting_questionnaire_completion' });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: idMessage || `wa_${Date.now()}`, phone, direction: 'incoming',
+              text: text.substring(0, 500), status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            await base44.asServiceRole.entities.WhatsAppMessageLog.create({
+              id_message: `out_${Date.now()}_fp_c9`, phone, direction: 'outgoing',
+              text: '[fast_path_c9_questionnaire_link]', status: 'replied', chat_id: chatId, conversation_id: conversationId,
+            });
+            return Response.json({ ok: true, fast_path: 'c9_questionnaire_link' });
+          }
+          console.log('FAST_PATH FP-C9: content not found, falling to LLM');
+        } catch (fpC9Err) {
+          console.warn(`FAST_PATH FP-C9 error: ${fpC9Err.message} — falling to LLM`);
+        }
+      }
+    }
     // ===== FAST PATH: FP-C5 — consultation chronic disease "צפיתי וקראתי" → additional_reading_offer =====
     {
       const _c5Mu = `https://api.green-api.com/waInstance${instanceId}/sendMessage/${token}`;
@@ -698,7 +732,7 @@ Deno.serve(async (req) => {
         serviceRequest?.service_type === 'consultation' &&
         serviceRequest?.sub_type &&
         serviceRequest?.sub_type !== 'אוטיזם' &&
-        _c5Norm === 'צפיתי וקראתי'
+        (_c5Norm === 'צפיתי וקראתי' || _c5Norm.startsWith('צפיתי וקרא'))
       ) {
         console.log('FAST_PATH: FP-C5 chronic disease tsafiti-v-karati → additional reading offer');
         try {
