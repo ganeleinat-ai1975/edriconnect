@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Pencil, Trash2, Video, FileText, Link as LinkIcon, CreditCard, ClipboardList, FileCheck, Search, Image } from 'lucide-react';
+import { Plus, Pencil, Trash2, Video, FileText, Link as LinkIcon, CreditCard, ClipboardList, FileCheck, Search, Image, Upload, Loader2 } from 'lucide-react';
 import PostLectureQR from '@/components/dashboard/PostLectureQR';
 import ViewToggle from '@/components/shared/ViewToggle';
 import BulkActions from '@/components/shared/BulkActions';
@@ -49,6 +49,7 @@ export default function ServiceContentPage() {
   const [view, setView] = useState('cards');
   const [selected, setSelected] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: contents = [], isLoading } = useQuery({
@@ -200,7 +201,31 @@ export default function ServiceContentPage() {
               <div><Label>שיוך שירות *</Label><Select value={form.service_type} onValueChange={(v) => setForm({ ...form, service_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{serviceTypes.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div><Label>תת-סוג (sub_type)</Label><Input value={form.sub_type || ''} onChange={(e) => setForm({ ...form, sub_type: e.target.value })} placeholder="לדוגמה: legal_calendar, series_calendar, אוטיזם" /></div>
-            <div><Label>קישור / URL</Label><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." dir="ltr" /></div>
+            <div>
+              <Label>קישור / URL</Label>
+              <div className="flex gap-2 items-center">
+                <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." dir="ltr" className="flex-1" />
+                <Button type="button" variant="outline" size="sm" className="gap-1 shrink-0" disabled={uploading} onClick={() => document.getElementById('sc-file-upload').click()}>
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {uploading ? 'מעלה...' : 'העלאת קובץ'}
+                </Button>
+                <input id="sc-file-upload" type="file" className="hidden" onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setUploading(true);
+                  try {
+                    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                    setForm(prev => ({ ...prev, url: file_url }));
+                    toast.success('הקובץ הועלה בהצלחה');
+                  } catch (err) {
+                    toast.error('שגיאה בהעלאה: ' + err.message);
+                  } finally {
+                    setUploading(false);
+                    e.target.value = '';
+                  }
+                }} />
+              </div>
+            </div>
             <div><Label>תיאור</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} /></div>
             <div className="grid grid-cols-2 gap-3"><div><Label>סדר הצגה</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} /></div></div>
           </div>
