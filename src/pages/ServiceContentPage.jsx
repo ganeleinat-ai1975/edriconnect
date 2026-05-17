@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Video, FileText, Link as LinkIcon, CreditCard, ClipboardList, FileCheck, Search, Image, Upload, Loader2 } from 'lucide-react';
 import PostLectureQR from '@/components/dashboard/PostLectureQR';
-import ImagePreview from '@/components/shared/ImagePreview.jsx';
+import ImagePreview from '@/components/shared/ImagePreview';
 import ViewToggle from '@/components/shared/ViewToggle';
 import BulkActions from '@/components/shared/BulkActions';
 import { toast } from 'sonner';

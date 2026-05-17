@@ -16,7 +16,7 @@ import { Plus, Pencil, Trash2, BookOpen, Clock, Video, FileText, Search } from '
 import ViewToggle from '@/components/shared/ViewToggle';
 import BulkActions from '@/components/shared/BulkActions';
 import { toast } from 'sonner';
-import ImagePreview from '@/components/shared/ImagePreview.jsx';
+import ImagePreview from '@/components/shared/ImagePreview';
 
 const lectureTypes = [
   { value: 'series', label: 'סדרה' },
