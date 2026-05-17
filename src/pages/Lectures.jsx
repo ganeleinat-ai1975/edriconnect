@@ -16,6 +16,7 @@ import { Plus, Pencil, Trash2, BookOpen, Clock, Video, FileText, Search } from '
 import ViewToggle from '@/components/shared/ViewToggle';
 import BulkActions from '@/components/shared/BulkActions';
 import { toast } from 'sonner';
+import ImagePreview from '@/components/shared/ImagePreview.jsx';
 
 const lectureTypes = [
   { value: 'series', label: 'סדרה' },
@@ -196,7 +197,11 @@ export default function Lectures() {
             </div>
             <div><Label>קישור סרטון</Label><Input value={form.video_url} onChange={(e) => setForm({ ...form, video_url: e.target.value })} dir="ltr" placeholder="https://..." /></div>
             <div><Label>קישור PDF</Label><Input value={form.pdf_url} onChange={(e) => setForm({ ...form, pdf_url: e.target.value })} dir="ltr" placeholder="https://..." /></div>
-            <div><Label>תמונה</Label><Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} dir="ltr" placeholder="https://..." /></div>
+            <div>
+              <Label>תמונה</Label>
+              <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} dir="ltr" placeholder="https://..." />
+              <ImagePreview url={form.image_url} label="תצוגה מקדימה:" />
+            </div>
             <div><Label>סדר הצגה</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} /></div>
           </div>
           <DialogFooter>

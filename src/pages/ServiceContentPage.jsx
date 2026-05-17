@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Video, FileText, Link as LinkIcon, CreditCard, ClipboardList, FileCheck, Search, Image, Upload, Loader2 } from 'lucide-react';
 import PostLectureQR from '@/components/dashboard/PostLectureQR';
+import ImagePreview from '@/components/shared/ImagePreview.jsx';
 import ViewToggle from '@/components/shared/ViewToggle';
 import BulkActions from '@/components/shared/BulkActions';
 import { toast } from 'sonner';
@@ -226,6 +227,7 @@ export default function ServiceContentPage() {
                 }} />
               </div>
             </div>
+            <ImagePreview url={form.url} label="תצוגה מקדימה של התמונה:" />
             <div><Label>תיאור</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} /></div>
             <div className="grid grid-cols-2 gap-3"><div><Label>סדר הצגה</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} /></div></div>
           </div>
