@@ -161,7 +161,7 @@ export default function ServiceRequests() {
 
       <BulkActions selectedCount={selected.length} onDelete={() => bulkDeleteMutation.mutate(selected)} onClear={() => setSelected([])} />
 
-      <Card>
+      <Card data-tutorial="requests-table">
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center">
             <div className="relative flex-1 min-w-0 sm:min-w-[200px] sm:max-w-sm">

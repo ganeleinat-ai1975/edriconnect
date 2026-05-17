@@ -78,7 +78,7 @@ export default function SystemSettings() {
   const filteredSettings = settings.filter(s => s.category === activeTab);
 
   return (
-    <div className="space-y-6">
+    <div data-tutorial="system-settings" className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl md:text-2xl font-bold">הגדרות מערכת</h1>
         <Button onClick={() => { setForm({ ...emptyForm, category: activeTab }); setEditId(null); setShowDialog(true); }} className="gap-2" size="sm">

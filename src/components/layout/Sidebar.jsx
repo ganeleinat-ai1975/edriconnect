@@ -12,7 +12,8 @@ import {
   FolderOpen,
   BookOpen,
   Bot,
-  BookOpenCheck
+  BookOpenCheck,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ const navItems = [
   { path: '/UserGuide', label: 'מדריך למשתמשת', icon: BookOpenCheck },
 ];
 
-export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose, onStartTutorial }) {
   const location = useLocation();
 
   return (
@@ -77,8 +78,17 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         })}
       </nav>
 
-      {/* Collapse toggle */}
-      <div className="p-2 border-t border-border">
+      {/* Tutorial + Collapse */}
+      <div className="p-2 border-t border-border space-y-1">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => { onMobileClose?.(); onStartTutorial?.(); }}
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <HelpCircle className="w-4 h-4" />
+          {!collapsed && <span className="text-sm font-medium font-body">מדריך</span>}
+        </Button>
         <Button 
           variant="ghost" 
           size="sm" 

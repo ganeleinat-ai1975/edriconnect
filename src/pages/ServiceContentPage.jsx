@@ -92,7 +92,7 @@ export default function ServiceContentPage() {
   const getIcon = (type) => { const ct = contentTypes.find(t => t.value === type); return ct ? ct.icon : FileText; };
 
   return (
-    <div className="space-y-4">
+    <div data-tutorial="service-content-table" className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl md:text-2xl font-bold">ניהול תוכן שירות</h1>
         <div className="flex items-center gap-2">

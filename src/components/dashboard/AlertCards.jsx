@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 
 export default function AlertCards({ newLeads, toCheck }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div data-tutorial="alert-cards" className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Link to="/ServiceRequests?status=new_lead">
         <Card className="hover:shadow-md transition-shadow cursor-pointer" style={{ borderRadius: '12px', borderColor: '#E0CBA5', backgroundColor: '#FDF6E3' }}>
           <CardContent className="p-5 flex items-center gap-4">

@@ -77,7 +77,7 @@ export default function Lectures() {
   };
 
   return (
-    <div className="space-y-4">
+    <div data-tutorial="lectures-table" className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-xl md:text-2xl font-bold">קטלוג הרצאות</h1>
         <div className="flex items-center gap-2">

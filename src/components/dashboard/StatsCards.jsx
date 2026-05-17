@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 export default function StatsCards({ stats }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+    <div data-tutorial="stats-cards" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {stats.map((stat, idx) => (
         <Card key={idx} className="p-3 md:p-5 relative overflow-hidden group hover:shadow-md transition-shadow" style={{ borderRadius: '12px' }}>
           <div className="flex items-start justify-between">

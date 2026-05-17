@@ -1,17 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { cn } from '@/lib/utils';
 import { usePendingBotMessages } from '@/hooks/usePendingBotMessages';
+import { useTutorial } from '@/hooks/useTutorial';
+import TutorialOverlay from '@/components/tutorial/TutorialOverlay';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const tutorial = useTutorial();
   
   // Listen for pending bot messages from webhooks (Cal.com etc.) and send them
   usePendingBotMessages();
+
+  // Auto-start tutorial on first visit
+  useEffect(() => {
+    if (!tutorial.isCompleted()) {
+      const timer = setTimeout(() => tutorial.start(), 800);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -33,6 +44,7 @@ export default function AppLayout() {
         onToggle={() => setCollapsed(!collapsed)} 
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        onStartTutorial={tutorial.start}
       />
       <main className={cn(
         "transition-all duration-300 min-h-screen",
@@ -44,6 +56,19 @@ export default function AppLayout() {
           <Outlet />
         </div>
       </main>
+
+      <TutorialOverlay
+        isOpen={tutorial.isOpen}
+        step={tutorial.step}
+        currentStep={tutorial.currentStep}
+        totalSteps={tutorial.totalSteps}
+        isPracticing={tutorial.isPracticing}
+        onNext={tutorial.next}
+        onPrev={tutorial.prev}
+        onClose={tutorial.close}
+        onPractice={tutorial.startPractice}
+        onEndPractice={tutorial.endPractice}
+      />
     </div>
   );
 }

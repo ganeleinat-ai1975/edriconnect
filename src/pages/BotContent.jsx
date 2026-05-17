@@ -128,7 +128,7 @@ export default function BotContent() {
       </div>
 
       {view === 'cards' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div data-tutorial="bot-content-table" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoading ? <p className="col-span-3 text-center py-8 text-muted-foreground">טוען...</p> : filtered.length === 0 ? <p className="col-span-3 text-center py-8 text-muted-foreground">אין הודעות</p> : (
             filtered.map((item) => (
               <Card key={item.id} className="hover:shadow-md transition-shadow group">
@@ -160,7 +160,7 @@ export default function BotContent() {
           )}
         </div>
       ) : (
-        <Card>
+        <Card data-tutorial="bot-content-table">
           <CardContent className="p-0 overflow-x-auto">
             <Table className="min-w-[900px]">
               <TableHeader>
