@@ -124,7 +124,13 @@ Deno.serve(async (req) => {
     if (contacts.length === 0 && phone.startsWith('972')) {
       contacts = await base44.asServiceRole.entities.Contact.filter({ phone: localPhone });
     }
-    const contact = contacts.length > 0 ? contacts[0] : null;
+    let contact = contacts.length > 0 ? contacts[0] : null;
+
+    // ===== CONTACT COMPLETENESS CHECK — if missing fields, treat as no contact (LLM will collect) =====
+    if (contact && (!contact.full_name || !contact.phone || !contact.email)) {
+      console.log(`Contact ${contact.id} missing fields (name=${!!contact.full_name}, phone=${!!contact.phone}, email=${!!contact.email}) — falling to LLM for collection`);
+      contact = null;
+    }
 
     // ===== FIND SERVICE REQUEST =====
     let serviceRequest = null;
@@ -394,11 +400,12 @@ Deno.serve(async (req) => {
                   body: JSON.stringify({ chatId, message: _fpVideoUrl }) });
               }
               const isAutism = subType === 'אוטיזם';
+              let fpPdfs = [];
               if (!isAutism) {
-                const fpPdfs = await base44.asServiceRole.entities.ServiceContent.filter({
+                fpPdfs = await base44.asServiceRole.entities.ServiceContent.filter({
                   service_type: 'consultation', content_type: 'pdf', sub_type: subType,
                 });
-                if (fpPdfs.length > 0) {
+                if (fpPdfs.length > 0 && fpPdfs[0].url) {
                   await new Promise(r => setTimeout(r, 1000));
                   const _fpPdfUrl = fpPdfs[0].url;
                   const _fpPdfIsDirect = /\.pdf(\?.*)?$/i.test(_fpPdfUrl);
@@ -412,9 +419,9 @@ Deno.serve(async (req) => {
                 }
               }
               await new Promise(r => setTimeout(r, 1000));
-              const confirmMsg = isAutism
-                ? 'לאחר שצפית, אנא כתוב/י *"צפיתי"* 🌸'
-                : 'לאחר שצפית וקראת, אנא כתוב/י *"צפיתי וקראתי"* 🌸';
+              const confirmMsg = (fpPdfs.length > 0 && fpPdfs[0].url)
+                ? 'לאחר שצפית וקראת, אנא כתוב/י *"צפיתי וקראתי"* 🌸'
+                : 'לאחר שצפית, אנא כתוב/י *"צפיתי"* 🌸';
               await fetch(_mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ chatId, message: confirmMsg }) });
               if (serviceRequest) {
@@ -599,7 +606,7 @@ Deno.serve(async (req) => {
         try {
           const _c6Sc = await base44.asServiceRole.entities.ServiceContent.filter({ service_type: 'consultation', content_type: 'external_link', sub_type: 'additional_reading' });
           const _c6Cq = await base44.asServiceRole.entities.BotContent.filter({ key: 'continue_process_question' });
-          if (_c6Sc.length > 0 && _c6Cq.length > 0) {
+          if (_c6Sc.length > 0 && _c6Sc[0].url && _c6Cq.length > 0) {
             await fetch(_c6Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ chatId, message: _c6Sc[0].url }) });
             await fetch(_c6Mu, { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -764,7 +771,8 @@ Deno.serve(async (req) => {
       if (
         _u1Norm === 'המשך' &&
         serviceRequest?.service_type !== 'post_lecture' && 
-        serviceRequest?.service_type !== 'legal'
+        serviceRequest?.service_type !== 'legal' &&
+        serviceRequest?.status === 'scheduled'
       ) {
         console.log('FAST_PATH: FP-U1 המשך → location_directions');
         try {
